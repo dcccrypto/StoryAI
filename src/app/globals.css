@@ -3,19 +3,192 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --terminal-bg: #0a0a0a;
+  --terminal-text: #3af23a;
+  --terminal-border: #1a1a1a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Reset default input styles */
+@layer base {
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input {
+    @apply bg-transparent;
+    color: var(--terminal-text);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+
+  /* Remove default focus styles */
+  input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+  }
+
+  /* Remove autofill styles */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--terminal-text) !important;
+    -webkit-box-shadow: 0 0 0 30px var(--terminal-bg) inset !important;
+    box-shadow: 0 0 0 30px var(--terminal-bg) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Hide NextJS error overlay */
+nextjs-portal {
+  display: none;
+}
+
+/* Terminal text flicker animation */
+@keyframes textFlicker {
+  0% { opacity: 0.8; }
+  2% { opacity: 1; }
+  8% { opacity: 0.1; }
+  9% { opacity: 1; }
+  12% { opacity: 0.1; }
+  20% { opacity: 1; }
+  25% { opacity: 0.3; }
+  30% { opacity: 1; }
+  70% { opacity: 0.7; }
+  72% { opacity: 0.2; }
+  77% { opacity: 0.9; }
+  100% { opacity: 0.9; }
+}
+
+/* Scanline animation */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* Terminal startup flicker */
+@keyframes startupFlicker {
+  0% { opacity: 0.1; }
+  25% { opacity: 0.15; }
+  30% { opacity: 0.25; }
+  35% { opacity: 0.15; }
+  40% { opacity: 0.25; }
+  45% { opacity: 0.15; }
+  50% { opacity: 0.25; }
+  55% { opacity: 0.15; }
+  60% { opacity: 0.25; }
+  70% { opacity: 0.15; }
+  80% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Loading bar animation */
+@keyframes loadingBar {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+/* Terminal text styles */
+.terminal-text {
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 5px var(--terminal-text);
+}
+
+/* Terminal flicker effect */
+.terminal-flicker {
+  animation: textFlicker 3s linear infinite;
+}
+
+/* Scanline effect */
+.terminal-scanline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(58, 242, 58, 0.1);
+  animation: scanline 6s linear infinite;
+}
+
+/* Terminal startup animation */
+.terminal-startup {
+  animation: startupFlicker 2s ease-in-out;
+}
+
+/* Fade in animation */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Loading bar */
+.loading-bar {
+  position: relative;
+  height: 1px;
+  background: rgba(58, 242, 58, 0.2);
+}
+
+.loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--terminal-text);
+  animation: loadingBar 2s ease-in-out;
+}
+
+/* Custom scrollbar */
+.terminal-text::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-text::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+}
+
+.terminal-text::-webkit-scrollbar-thumb {
+  background: var(--terminal-text);
+  opacity: 0.3;
+}
+
+/* Terminal prompt animation */
+.terminal-prompt::before {
+  content: '>';
+  margin-right: 8px;
+  animation: textFlicker 2s linear infinite;
+}
+
+/* Terminal cursor animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+input.terminal-text::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+}
+
+/* Noise overlay */
+.terminal-noise {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyBAMAAADsEZWCAAAAGFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgE1xQAAAABh0Uk5TAAgMEBQYHCAkKCwwNDg8QERITH1zX7wAAABZSURBVDjLY2CAAUYhBhCBKsRAQAEVYkABQlwMiAKE9CILIQsxoACmHgYkIQY0gCXEgA6whBgwAEyIAQtgEmLAAjAhBiyASYgBC2ASYsACmIQYsAAmIQYsgEkIAKdqXKSk1YLHAAAAAElFTkSuQmCC");
+  opacity: 0.02;
+  pointer-events: none;
 }
