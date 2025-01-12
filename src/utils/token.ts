@@ -7,35 +7,62 @@ import {
 import { config } from '../utils/config';
 
 const FALLBACK_ENDPOINTS = [
-  'https://api.mainnet-beta.solana.com',
-  'https://ssc-dao.genesysgo.net',
-  'https://solana-api.projectserum.com',
-  'https://mainnet.rpcpool.com',
+  'https://api.devnet.solana.com',
+  'https://solana-mainnet.g.alchemy.com/v2/demo',
+  'https://rpc.ankr.com/solana',
 ];
 
+// Add connection caching
+let cachedConnection: Connection | null = null;
+let lastConnectionTime: number = 0;
+const CONNECTION_CACHE_DURATION = 30000; // 30 seconds
+
 async function getWorkingConnection(): Promise<Connection> {
-  // Try primary endpoint first
-  try {
-    const connection = new Connection(config.rpcEndpoint);
-    await connection.getLatestBlockhash();
-    return connection;
-  } catch (err) {
-    console.log('Primary RPC failed, trying fallbacks...', err);
+  // Return cached connection if valid
+  if (cachedConnection && (Date.now() - lastConnectionTime < CONNECTION_CACHE_DURATION)) {
+    return cachedConnection;
   }
 
-  // Try fallbacks
+  // Try primary endpoint
+  try {
+    const connection = new Connection(config.rpcEndpoint, {
+      commitment: 'confirmed',
+      confirmTransactionInitialTimeout: 60000
+    });
+    
+    // Only test connection if we're creating a new one
+    await connection.getVersion();  // Lighter weight call than getLatestBlockhash
+    
+    // Cache the working connection
+    cachedConnection = connection;
+    lastConnectionTime = Date.now();
+    return connection;
+  } catch (err) {
+    console.warn('Primary RPC failed, trying fallbacks...', err);
+  }
+
+  // Try fallbacks with delay between attempts
   for (const endpoint of FALLBACK_ENDPOINTS) {
     try {
-      const connection = new Connection(endpoint);
-      await connection.getLatestBlockhash();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Add delay between attempts
+      const connection = new Connection(endpoint, {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 60000
+      });
+      await connection.getVersion();
+      
+      cachedConnection = connection;
+      lastConnectionTime = Date.now();
       return connection;
     } catch (err) {
-      console.log(`Fallback RPC ${endpoint} failed:`, err);
+      if (err instanceof Error) {
+        console.warn(`Fallback RPC ${endpoint} failed:`, err.message);
+      }
       continue;
     }
   }
 
-  throw new Error('All RPC endpoints failed');
+  throw new Error('Unable to connect to Solana network. Please try again later.');
 }
 
 export async function getTokenBalance(connection: Connection, walletAddress: PublicKey) {
