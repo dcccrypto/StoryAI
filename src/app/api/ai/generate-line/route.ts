@@ -1,18 +1,11 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 
 const HUGGING_FACE_API_URL = 'https://api-inference.huggingface.co/models/';
 const MODEL_NAME = 'gpt2'; // Replace with your preferred model
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const { story } = req.body;
+    const { story } = await request.json();
 
     if (!process.env.HUGGING_FACE_API_KEY) {
       throw new Error('Hugging Face API key not configured');
@@ -41,9 +34,12 @@ export default async function handler(
     const data = await response.json();
     const generatedLine = data[0]?.generated_text?.split('\n').pop() || '';
 
-    res.status(200).json({ generatedLine });
+    return NextResponse.json({ generatedLine });
   } catch (error) {
     console.error('AI generation error:', error);
-    res.status(500).json({ message: 'Failed to generate line' });
+    return NextResponse.json(
+      { message: 'Failed to generate line' },
+      { status: 500 }
+    );
   }
 } 

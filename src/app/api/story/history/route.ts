@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 
 interface StoryVersion {
   id: string;
@@ -23,39 +23,35 @@ const mockHistory: StoryVersion[] = [
   },
 ];
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export async function GET(request: NextRequest) {
   try {
-    const { page = '1', limit = '10' } = req.query;
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     // TODO: Replace with actual database query
     const history = mockHistory;
     const total = history.length;
-    const totalPages = Math.ceil(total / limitNum);
+    const totalPages = Math.ceil(total / limit);
 
     const paginatedHistory = history.slice(
-      (pageNum - 1) * limitNum,
-      pageNum * limitNum
+      (page - 1) * limit,
+      page * limit
     );
 
-    res.status(200).json({
+    return NextResponse.json({
       history: paginatedHistory,
       pagination: {
-        currentPage: pageNum,
+        currentPage: page,
         totalPages,
         totalVersions: total,
       },
     });
   } catch (error) {
     console.error('Error fetching story history:', error);
-    res.status(500).json({ message: 'Failed to fetch story history' });
+    return NextResponse.json(
+      { message: 'Failed to fetch story history' },
+      { status: 500 }
+    );
   }
 } 

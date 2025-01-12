@@ -192,3 +192,63 @@ input.terminal-text::after {
   opacity: 0.02;
   pointer-events: none;
 }
+
+/* Typewriter animation */
+@keyframes typewriter {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.animate-typewriter {
+  animation: typewriter 1s steps(50, end);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  display: inline-block;
+}
+
+/* Add these styles */
+@keyframes matrix-rain {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.matrix-rain {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, 
+    transparent 0%,
+    rgba(58, 242, 58, 0.2) 50%,
+    transparent 100%
+  );
+  animation: matrix-rain 2s linear infinite;
+}
+
+.typewriter {
+  overflow: hidden;
+  border-right: 2px solid #3af23a;
+  white-space: nowrap;
+  animation: 
+    typing 3.5s steps(40, end),
+    blink-caret .75s step-end infinite;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: #3af23a }
+}

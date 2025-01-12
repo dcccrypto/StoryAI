@@ -1,4 +1,5 @@
 import TerminalWrapper from '@/components/terminal-wrapper';
+import WalletAddress from '@/components/wallet-address';
 
 // Mock initial story data - replace with actual data fetching
 async function getInitialStory() {
@@ -13,7 +14,9 @@ export default async function Home() {
   const story = await getInitialStory();
 
   return (
-    <main className="min-h-screen h-screen flex flex-col bg-black p-2 sm:p-4 md:p-6">
+    <main className="min-h-screen h-screen flex flex-col bg-[#0a0a0a] p-2 sm:p-4 md:p-6 overflow-hidden">
+      <WalletAddress />
+      
       {/* Header - takes up minimum space needed */}
       <header className="flex-none mb-2 sm:mb-4">
         <h1 className="text-[#3af23a] text-xl sm:text-2xl md:text-3xl font-mono text-center">
@@ -25,7 +28,7 @@ export default async function Home() {
       </header>
 
       {/* Terminal Container - takes up all remaining space */}
-      <div className="flex-grow h-0 min-h-0">
+      <div className="flex-grow min-h-0 relative bg-[#0a0a0a]">
         <TerminalWrapper
           story={story}
           isConnected={false}
@@ -33,7 +36,7 @@ export default async function Home() {
       </div>
 
       {/* Footer - takes up minimum space needed */}
-      <footer className="flex-none mt-2 sm:mt-4">
+      <footer className="flex-none mt-2 sm:mt-4 bg-[#0a0a0a]">
         <p className="text-center text-[#3af23a]/50 text-xs font-mono">
           Connect your Phantom wallet to start contributing to the story.
         </p>

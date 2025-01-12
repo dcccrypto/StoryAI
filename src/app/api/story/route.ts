@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 
 // TODO: Replace with your database client
 const mockStory = [
@@ -7,25 +7,21 @@ const mockStory = [
   'Each contributing their unique perspective...',
 ];
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export async function GET() {
   try {
     // TODO: Replace with actual database query
     const story = mockStory;
 
-    res.status(200).json({
+    return NextResponse.json({
       story,
       totalLines: story.length,
       lastUpdate: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Error fetching story:', error);
-    res.status(500).json({ message: 'Failed to fetch story' });
+    return NextResponse.json(
+      { message: 'Failed to fetch story' },
+      { status: 500 }
+    );
   }
 } 

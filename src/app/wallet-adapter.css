@@ -1,0 +1,33 @@
+@import url('@solana/wallet-adapter-react-ui/styles.css');
+
+/* Custom wallet styles */
+.wallet-adapter-button {
+  background-color: #0a0a0a !important;
+  border: 1px solid #3af23a !important;
+  color: #3af23a !important;
+  font-family: monospace !important;
+}
+
+.wallet-adapter-button:hover {
+  background-color: #3af23a !important;
+  color: #0a0a0a !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: #0a0a0a !important;
+  border: 1px solid #3af23a !important;
+  color: #3af23a !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background-color: #3af23a !important;
+  color: #0a0a0a !important;
+}
+
+.wallet-adapter-modal-title {
+  color: #3af23a !important;
+}
+
+.wallet-adapter-modal-list {
+  margin: 0 0 4px !important;
+} 

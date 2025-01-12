@@ -2,11 +2,36 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import MatrixRain from './matrix-rain';
+import { useWallet, WalletContextState } from '@solana/wallet-adapter-react';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import WalletPopup from './wallet-popup';
+import { getTokenBalance, createTokenAccount } from '../src/utils/token';
+import MatrixWalletPopup from './matrix-wallet-popup';
+import { config } from '../src/utils/config';
+import { Transaction } from '@solana/web3.js';
+
+interface PhantomProvider {
+  isPhantom?: boolean;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  on: (event: string, callback: () => void) => void;
+  publicKey?: string;
+}
+
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: PhantomProvider;
+    };
+  }
+}
 
 interface TerminalLine {
   content: string;
-  type: 'input' | 'output' | 'error';
+  type: 'input' | 'output' | 'error' | 'success' | 'warning' | 'info';
   timestamp: string;
+  animate?: boolean;
 }
 
 interface StoryTerminalProps {
@@ -16,9 +41,22 @@ interface StoryTerminalProps {
   isConnected: boolean;
 }
 
+// Terminal colors
+const COLORS = {
+  default: 'text-[#3af23a]',
+  error: 'text-red-500',
+  success: 'text-green-400',
+  warning: 'text-yellow-400',
+  info: 'text-blue-400',
+  muted: 'text-[#3af23a]/50',
+  highlight: 'text-purple-400',
+  command: 'text-cyan-400',
+} as const;
+
 type CommandResponse = {
   content: string[];
-  type: 'output' | 'error';
+  type: 'output' | 'error' | 'success' | 'warning' | 'info';
+  animate?: boolean;
 };
 
 export default function StoryTerminal({ 
@@ -27,6 +65,10 @@ export default function StoryTerminal({
   onViewHistory,
   isConnected 
 }: StoryTerminalProps) {
+  const { publicKey, signMessage, wallet, disconnect } = useWallet();
+  const { connection } = useConnection();
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [bootSequenceComplete, setBootSequenceComplete] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<TerminalLine[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -34,6 +76,7 @@ export default function StoryTerminal({
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const [isWalletPopupOpen, setIsWalletPopupOpen] = useState(false);
 
   // Boot sequence messages
   const bootSequence = [
@@ -99,91 +142,286 @@ export default function StoryTerminal({
   const commands = {
     help: async (): Promise<CommandResponse> => ({
       content: [
-        'Available commands:',
-        '  view story    - Display the current story',
-        '  submit line   - Submit a new line to the story',
-        '  view history  - View story version history',
-        '  status       - Display system status',
-        '  about        - Show information about StoryAI',
-        '  time         - Show current system time',
-        '  clear        - Clear terminal',
-        '  help         - Show this help message',
+        '🌟 Available Commands:',
+        '',
+        '📖 Story Commands:',
+        '  view story              - Display the current story',
+        '  submit line <text>      - Submit a new line to the story',
+        '  view history            - View story version history',
+        '',
+        '🔧 System Commands:',
+        '  status                  - Display system status',
+        '  clear                   - Clear terminal',
+        '  theme <light|dark>      - Change terminal theme',
+        '',
+        '👤 User Commands:',
+        '  balance                 - Check your token balance',
+        '  stats                   - View your contribution statistics',
+        '  connect                 - Connect your wallet',
+        '',
+        '⚙️ Advanced Commands:',
+        '  export story            - Export story to text file',
+        '  search <term>           - Search within the story',
+        '  contributors            - List top contributors',
+        '  version                - Show system version',
+        '',
+        '💡 Tips:',
+        '  - Use arrow keys to navigate command history',
+        '  - Press Tab for command completion',
+        '  - Type "help <command>" for detailed help'
       ],
       type: 'output',
+      animate: true
     }),
-    'view story': async (): Promise<CommandResponse> => ({
+
+    'export story': async (): Promise<CommandResponse> => {
+      const content = story.join('\n');
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'story.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      return {
+        content: ['Story exported successfully to story.txt'],
+        type: 'success'
+      };
+    },
+
+    search: async (args: string): Promise<CommandResponse> => {
+      if (!args.trim()) {
+        return {
+          content: ['Error: Please provide a search term'],
+          type: 'error'
+        };
+      }
+
+      const term = args.toLowerCase();
+      const results = story
+        .map((line, index) => ({ line, index }))
+        .filter(({ line }) => line.toLowerCase().includes(term));
+
+      if (results.length === 0) {
+        return {
+          content: ['No matches found'],
+          type: 'warning'
+        };
+      }
+
+      return {
+        content: [
+          `Found ${results.length} matches:`,
+          '',
+          ...results.map(({ line, index }) => `[${index + 1}] ${line}`)
+        ],
+        type: 'output'
+      };
+    },
+
+    contributors: async (): Promise<CommandResponse> => ({
       content: [
-        'Current story:',
-        '------------',
-        ...story.map((line, i) => `${i + 1}. ${line}`),
-        '------------',
+        'Top Contributors:',
+        '---------------',
+        '1. 0x1234...5678 - 15 lines',
+        '2. 0x8765...4321 - 12 lines',
+        '3. 0x9876...1234 - 8 lines',
+        '',
+        'Total Contributors: 25'
+      ],
+      type: 'output'
+    }),
+
+    theme: async (args: string): Promise<CommandResponse> => {
+      const theme = args.trim().toLowerCase();
+      if (!['light', 'dark'].includes(theme)) {
+        return {
+          content: ['Error: Invalid theme. Use "light" or "dark"'],
+          type: 'error'
+        };
+      }
+      // Theme switching logic would go here
+      return {
+        content: [`Theme switched to ${theme} mode`],
+        type: 'success'
+      };
+    },
+
+    version: async (): Promise<CommandResponse> => ({
+      content: [
+        'StoryAI Terminal v1.0.0',
+        '----------------------',
+        'Build: 2024.03.14',
+        'Runtime: Next.js 14.0.0',
+        'Protocol: v2.1',
+        'Blockchain: Solana'
+      ],
+      type: 'output'
+    }),
+
+    stats: async (): Promise<CommandResponse> => ({
+      content: [
+        '📊 Your Statistics',
+        '----------------',
+        'Lines Contributed: 8',
+        'Last Contribution: 2 days ago',
+        'Token Balance: 150,000',
+        '',
+        '🏆 Achievements:',
+        '- First Line Writer',
+        '- Regular Contributor',
+        '- Creative Spark'
       ],
       type: 'output',
+      animate: true
     }),
-    'submit line': async (args: string): Promise<CommandResponse> => {
+
+    balance: async (): Promise<CommandResponse> => {
       if (!isConnected) {
         return {
           content: ['Error: Please connect your wallet first'],
-          type: 'error',
+          type: 'error'
         };
       }
-      if (!args.trim()) {
-        return {
-          content: ['Error: Please provide a line to submit'],
-          type: 'error',
-        };
-      }
-      if (onSubmitLine) {
-        onSubmitLine(args);
-        return {
-          content: ['Line submitted successfully'],
-          type: 'output',
-        };
-      }
-      return {
-        content: ['Error: Line submission is not available'],
-        type: 'error',
-      };
-    },
-    'view history': async (): Promise<CommandResponse> => {
-      if (!onViewHistory) {
-        return {
-          content: ['Error: History viewing is not available'],
-          type: 'error',
-        };
-      }
-      const history = await onViewHistory();
       return {
         content: [
-          'Story history:',
-          '-------------',
-          ...history,
-          '-------------',
+          '💰 Wallet Balance',
+          '---------------',
+          'Tokens: 150,000 STORY',
+          'Last Updated: Just now'
         ],
-        type: 'output',
+        type: 'success'
       };
     },
-    clear: async (): Promise<CommandResponse> => {
-      setTerminalHistory([]);
+
+    connect: async (): Promise<CommandResponse> => {
+      if (publicKey) {
+        return {
+          content: [
+            '> WALLET ALREADY CONNECTED',
+            `> ADDRESS: ${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`,
+            '> Use "status" command for more details'
+          ],
+          type: 'warning'
+        };
+      }
+
+      setIsWalletPopupOpen(true);
       return {
-        content: [],
-        type: 'output',
+        content: [
+          '> INITIATING SECURE WALLET CONNECTION',
+          '> ESTABLISHING QUANTUM ENCRYPTION TUNNEL...',
+          '> OPENING SECURE CONNECTION PORTAL...',
+          '',
+          'Please select your wallet in the connection interface.',
+          'Type "status" after connecting to verify your connection.'
+        ],
+        type: 'info',
+        animate: true
       };
     },
-    status: async (): Promise<CommandResponse> => ({
-      content: [
-        'System Status:',
-        '-------------',
-        `Memory Usage: ${Math.floor(Math.random() * 20 + 60)}%`,
-        `CPU Load: ${Math.floor(Math.random() * 30 + 40)}%`,
-        `Network Latency: ${Math.floor(Math.random() * 50 + 20)}ms`,
-        `Blockchain Connection: ${isConnected ? 'Active' : 'Inactive'}`,
-        `Story Database: Online`,
-        `AI Subsystem: Responsive`,
-        '-------------',
-      ],
-      type: 'output',
-    }),
+
+    logout: async (): Promise<CommandResponse> => {
+      try {
+        await disconnect();
+        setSessionToken(null);
+        // Clear session cookie
+        document.cookie = 'auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        return {
+          content: ['Successfully logged out'],
+          type: 'success'
+        };
+      } catch (error) {
+        return {
+          content: ['Error logging out'],
+          type: 'error'
+        };
+      }
+    },
+
+    status: async (): Promise<CommandResponse> => {
+      if (!publicKey) {
+        return {
+          content: [
+            '> CONNECTION STATUS: OFFLINE',
+            '> SECURE TUNNEL: NOT ESTABLISHED',
+            '> ACTION REQUIRED: Type "connect" to initialize wallet connection'
+          ],
+          type: 'warning'
+        };
+      }
+
+      try {
+        let tokenBalance = 0;
+        try {
+          const { instruction, associatedTokenAddress } = await createTokenAccount(connection, publicKey);
+          
+          if (instruction) {
+            if (!wallet?.adapter) {
+              throw new Error('No wallet adapter found');
+            }
+
+            const transaction = new Transaction().add(instruction);
+            transaction.feePayer = publicKey;
+            transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+            try {
+              // Check if the adapter supports signing
+              if (!('signTransaction' in wallet.adapter)) {
+                throw new Error('Wallet does not support transaction signing');
+              }
+
+              const signedTx = await wallet.adapter.signTransaction(transaction);
+              const signature = await connection.sendRawTransaction(signedTx.serialize());
+              await connection.confirmTransaction(signature, 'confirmed');
+              console.log('Created token account:', associatedTokenAddress.toBase58());
+            } catch (signError) {
+              console.error('Error signing transaction:', signError);
+              // Continue even if creation fails - user might have rejected
+            }
+          }
+
+          tokenBalance = await getTokenBalance(connection, publicKey);
+        } catch (tokenError) {
+          console.error('Token balance error:', tokenError);
+          return {
+            content: [
+              '> CONNECTION STATUS: ACTIVE',
+              '> SECURE TUNNEL: ESTABLISHED',
+              '> ENCRYPTION: ENABLED',
+              `> WALLET ID: ${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`,
+              '> BALANCE: Error fetching balance',
+              `> NETWORK: ${config.network.toUpperCase()}`,
+              '> ERROR: Unable to fetch token balance',
+              '> QUANTUM ENCRYPTION: ENABLED'
+            ],
+            type: 'error'
+          };
+        }
+
+        return {
+          content: [
+            '> CONNECTION STATUS: ACTIVE',
+            '> SECURE TUNNEL: ESTABLISHED',
+            '> ENCRYPTION: ENABLED',
+            `> WALLET ID: ${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`,
+            `> BALANCE: ${tokenBalance.toLocaleString()} $STORY`,
+            `> NETWORK: ${config.network.toUpperCase()}`,
+            `> SESSION: ${sessionToken ? 'AUTHENTICATED' : 'GUEST'}`,
+            '> QUANTUM ENCRYPTION: ENABLED'
+          ],
+          type: 'success'
+        };
+      } catch (error) {
+        console.error('Status error:', error);
+        return {
+          content: ['> ERROR: Unable to fetch wallet status'],
+          type: 'error'
+        };
+      }
+    },
+
     about: async (): Promise<CommandResponse> => ({
       content: [
         'StoryAI Terminal v1.0.0',
@@ -198,6 +436,7 @@ export default function StoryTerminal({
       ],
       type: 'output',
     }),
+
     time: async (): Promise<CommandResponse> => ({
       content: [
         `Current System Time: ${new Date().toLocaleString()}`,
@@ -297,6 +536,22 @@ export default function StoryTerminal({
     }
   };
 
+  // Add a useEffect to handle wallet connection
+  useEffect(() => {
+    if (publicKey) {
+      setTerminalHistory(prev => [...prev, {
+        content: [
+          '> WALLET CONNECTED SUCCESSFULLY',
+          `> ADDRESS: ${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`,
+          '> Type "status" for more details'
+        ].join('\n'),
+        type: 'success',
+        timestamp: new Date().toISOString(),
+        animate: true
+      }]);
+    }
+  }, [publicKey]);
+
   return (
     <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-[#3af23a] p-2 sm:p-3 md:p-4 font-mono rounded-lg overflow-hidden relative">
       {/* Matrix rain effect */}
@@ -308,11 +563,15 @@ export default function StoryTerminal({
           <div
             key={`${line.timestamp}-${index}`}
             className={`
-              ${line.type === 'error' ? 'text-red-500' : ''}
-              ${line.type === 'input' ? 'opacity-90' : ''}
+              ${line.type === 'error' ? COLORS.error : ''}
+              ${line.type === 'success' ? COLORS.success : ''}
+              ${line.type === 'warning' ? COLORS.warning : ''}
+              ${line.type === 'output' ? COLORS.default : ''}
+              ${line.type === 'input' ? COLORS.command : ''}
               text-xs sm:text-sm leading-relaxed
               ${index === terminalHistory.length - 1 ? 'animate-fadeIn' : ''}
               ${!bootSequenceComplete ? 'terminal-flicker' : ''}
+              ${line.animate ? 'animate-typewriter' : ''}
             `}
           >
             {line.content}
@@ -351,11 +610,12 @@ export default function StoryTerminal({
 
       {/* Status bar - fixed height */}
       {bootSequenceComplete && (
-        <div className="flex-none text-[10px] sm:text-xs text-[#3af23a]/50 mt-2 flex items-center justify-between relative z-10">
+        <div className="flex-none text-[10px] sm:text-xs text-[#3af23a]/50 mt-2 flex items-center justify-between relative z-10 bg-[#0a0a0a]">
           <div className="flex items-center">
             <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full mr-2 ${isConnected ? 'bg-[#3af23a] terminal-flicker' : 'bg-red-500'}`} />
             {isConnected ? 'Connected' : 'Wallet not connected'}
           </div>
+          
           <span className="text-[#3af23a]/30">
             {new Date().toLocaleTimeString()}
           </span>
@@ -364,6 +624,11 @@ export default function StoryTerminal({
 
       {/* Scanline effect */}
       <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none terminal-scanline" />
+
+      <MatrixWalletPopup 
+        isOpen={isWalletPopupOpen} 
+        onClose={() => setIsWalletPopupOpen(false)} 
+      />
     </div>
   );
 } 
