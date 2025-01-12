@@ -1,16 +1,10 @@
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { 
   TOKEN_PROGRAM_ID, 
   getAssociatedTokenAddress, 
   createAssociatedTokenAccountInstruction 
 } from '@solana/spl-token';
 import { config } from '../utils/config';
-
-// Add error type
-interface RPCError extends Error {
-  code?: number;
-  message: string;
-}
 
 const FALLBACK_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
@@ -25,8 +19,8 @@ async function getWorkingConnection(): Promise<Connection> {
     const connection = new Connection(config.rpcEndpoint);
     await connection.getLatestBlockhash();
     return connection;
-  } catch (error) {
-    console.log('Primary RPC failed, trying fallbacks...');
+  } catch (err) {
+    console.log('Primary RPC failed, trying fallbacks...', err);
   }
 
   // Try fallbacks
@@ -35,7 +29,8 @@ async function getWorkingConnection(): Promise<Connection> {
       const connection = new Connection(endpoint);
       await connection.getLatestBlockhash();
       return connection;
-    } catch (error) {
+    } catch (err) {
+      console.log(`Fallback RPC ${endpoint} failed:`, err);
       continue;
     }
   }
@@ -57,8 +52,8 @@ export async function getTokenBalance(connection: Connection, walletAddress: Pub
         new PublicKey(config.tokenAddress)
       );
       console.log('Token Info:', tokenInfo.value ? 'Found' : 'Not Found');
-    } catch (error) {
-      console.error('Error checking token info:', error);
+    } catch (err) {
+      console.error('Error checking token info:', err);
     }
 
     // Get all token accounts
@@ -103,14 +98,14 @@ export async function getTokenBalance(connection: Connection, walletAddress: Pub
     }
 
     return 0;
-  } catch (error: unknown) {
+  } catch (err) {
     console.error('=== Detailed Error in getTokenBalance ===');
-    if (error instanceof Error) {
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+    if (err instanceof Error) {
+      console.error('Error type:', err.constructor.name);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
     } else {
-      console.error('Unknown error:', error);
+      console.error('Unknown error:', err);
     }
     return 0;
   }
@@ -140,8 +135,6 @@ export async function createTokenAccount(
         new PublicKey(config.tokenAddress) // mint
       );
 
-      const transaction = new Transaction().add(instruction);
-      
       return {
         instruction,
         associatedTokenAddress
@@ -149,10 +142,10 @@ export async function createTokenAccount(
     }
 
     return { associatedTokenAddress };
-  } catch (error: unknown) {
+  } catch (err) {
     console.error('Error creating token account:', 
-      error instanceof Error ? error.message : 'Unknown error'
+      err instanceof Error ? err.message : 'Unknown error'
     );
-    throw error;
+    throw err;
   }
 } 

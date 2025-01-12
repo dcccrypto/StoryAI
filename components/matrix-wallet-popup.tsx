@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useEffect, useState } from 'react';
 import MatrixRain from './matrix-rain';
+import { Prompt } from './shared/Prompt';
 
 interface MatrixWalletPopupProps {
   isOpen: boolean;
@@ -64,9 +65,11 @@ export default function MatrixWalletPopup({ isOpen, onClose }: MatrixWalletPopup
         {/* Content */}
         <div className="p-6 space-y-6">
           <div className="space-y-2 font-mono">
-            <p className="text-[#3af23a] animate-pulse">> Initializing connection protocol...</p>
+            <p className="text-[#3af23a] animate-pulse">
+              <Prompt />Initializing connection protocol...
+            </p>
             <p className="text-[#3af23a]/70 typewriter">
-              > Select wallet to establish quantum-encrypted tunnel
+              <Prompt />Select wallet to establish quantum-encrypted tunnel
             </p>
           </div>
 
@@ -77,12 +80,12 @@ export default function MatrixWalletPopup({ isOpen, onClose }: MatrixWalletPopup
           {/* Status indicators */}
           <div className="grid grid-cols-2 gap-4 text-xs font-mono text-[#3af23a]/60">
             <div className="space-y-1">
-              <p>> ENCRYPTION: ACTIVE</p>
-              <p>> PROTOCOL: QUANTUM</p>
+              <p><Prompt />ENCRYPTION: ACTIVE</p>
+              <p><Prompt />PROTOCOL: QUANTUM</p>
             </div>
             <div className="space-y-1">
-              <p>> NETWORK: MAINNET</p>
-              <p>> STATUS: AWAITING</p>
+              <p><Prompt />NETWORK: MAINNET</p>
+              <p><Prompt />STATUS: AWAITING</p>
             </div>
           </div>
         </div>

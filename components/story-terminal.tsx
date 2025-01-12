@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import MatrixRain from './matrix-rain';
-import { useWallet, WalletContextState } from '@solana/wallet-adapter-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import WalletPopup from './wallet-popup';
-import { getTokenBalance, createTokenAccount } from '../src/utils/token';
 import MatrixWalletPopup from './matrix-wallet-popup';
+import { getTokenBalance, createTokenAccount } from '../src/utils/token';
 import { config } from '../src/utils/config';
 import { Transaction } from '@solana/web3.js';
 
@@ -61,13 +59,10 @@ type CommandResponse = {
 
 export default function StoryTerminal({ 
   story, 
-  onSubmitLine,
-  onViewHistory,
   isConnected 
 }: StoryTerminalProps) {
-  const { publicKey, signMessage, wallet, disconnect } = useWallet();
+  const { publicKey, wallet, disconnect } = useWallet();
   const { connection } = useConnection();
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [bootSequenceComplete, setBootSequenceComplete] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<TerminalLine[]>([]);
@@ -79,7 +74,7 @@ export default function StoryTerminal({
   const [isWalletPopupOpen, setIsWalletPopupOpen] = useState(false);
 
   // Boot sequence messages
-  const bootSequence = [
+  const bootSequence = useMemo(() => [
     { message: 'BIOS Version 1.0.2-StoryAI', delay: 200 },
     { message: 'Performing system initialization...', delay: 400 },
     { message: 'CPU: Quantum Storytelling Processor v2.0', delay: 800 },
@@ -113,11 +108,11 @@ export default function StoryTerminal({
     { message: 'System initialization complete.', delay: 8400 },
     { message: 'StoryAI Terminal v1.0.0 Ready', delay: 8600 },
     { message: 'Type "help" for available commands.', delay: 8800 },
-  ];
+  ], []);
 
   // Initialize boot sequence
   useEffect(() => {
-    let timeouts: NodeJS.Timeout[] = [];
+    const timeouts: NodeJS.Timeout[] = [];
     
     bootSequence.forEach(({ message, delay }, index) => {
       const timeout = setTimeout(() => {
@@ -136,7 +131,7 @@ export default function StoryTerminal({
     });
 
     return () => timeouts.forEach(clearTimeout);
-  }, []);
+  }, [bootSequence]);
 
   // Available commands and their handlers
   const commands = {
@@ -332,7 +327,8 @@ export default function StoryTerminal({
           content: ['Successfully logged out'],
           type: 'success'
         };
-      } catch (error) {
+      } catch (err) {
+        console.error('Error during logout:', err);
         return {
           content: ['Error logging out'],
           type: 'error'
@@ -376,15 +372,15 @@ export default function StoryTerminal({
               const signature = await connection.sendRawTransaction(signedTx.serialize());
               await connection.confirmTransaction(signature, 'confirmed');
               console.log('Created token account:', associatedTokenAddress.toBase58());
-            } catch (signError) {
-              console.error('Error signing transaction:', signError);
+            } catch (signErr) {
+              console.error('Error signing transaction:', signErr);
               // Continue even if creation fails - user might have rejected
             }
           }
 
           tokenBalance = await getTokenBalance(connection, publicKey);
-        } catch (tokenError) {
-          console.error('Token balance error:', tokenError);
+        } catch (tokenErr) {
+          console.error('Token balance error:', tokenErr);
           return {
             content: [
               '> CONNECTION STATUS: ACTIVE',
@@ -413,8 +409,8 @@ export default function StoryTerminal({
           ],
           type: 'success'
         };
-      } catch (error) {
-        console.error('Status error:', error);
+      } catch (err) {
+        console.error('Status error:', err);
         return {
           content: ['> ERROR: Unable to fetch wallet status'],
           type: 'error'
@@ -486,50 +482,48 @@ export default function StoryTerminal({
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [terminalHistory]);
 
-  const handleCommand = async (input: string) => {
-    const timestamp = new Date().toISOString();
-    const [command, ...args] = input.trim().toLowerCase().split(/\s+/);
-    const fullCommand = Object.keys(commands).find(cmd => 
-      cmd.split(' ')[0] === command || cmd === command
-    );
-
-    setIsProcessing(true);
-
-    // Add user input to history
-    setTerminalHistory(prev => [...prev, {
-      content: `> ${input}`,
-      type: 'input',
-      timestamp,
-    }]);
-
-    // Simulate processing delay for more authentic feel
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    if (!fullCommand) {
-      setTerminalHistory(prev => [...prev, {
-        content: `Command not found: ${command}\nTip: Type 'help' to see available commands.`,
-        type: 'error',
-        timestamp,
-      }]);
-      setIsProcessing(false);
-      return;
-    }
-
+  const handleCommand = async (commandInput: string): Promise<void> => {
     try {
+      setIsProcessing(true);
+      const [command, ...args] = commandInput.trim().toLowerCase().split(/\s+/);
+      const fullCommand = Object.keys(commands).find(cmd => 
+        cmd.split(' ')[0] === command || cmd === command
+      );
+
+      // Add user input to history
+      setTerminalHistory(prev => [...prev, {
+        content: `> ${commandInput}`,
+        type: 'input',
+        timestamp: new Date().toISOString()
+      }]);
+
+      // Simulate processing delay for more authentic feel
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (!fullCommand) {
+        setTerminalHistory(prev => [...prev, {
+          content: `Command not found: ${command}\nTip: Type 'help' to see available commands.`,
+          type: 'error',
+          timestamp: new Date().toISOString()
+        }]);
+        return;
+      }
+
       const response = await commands[fullCommand as keyof typeof commands](args.join(' '));
       setTerminalHistory(prev => [
         ...prev,
         ...response.content.map(line => ({
           content: line,
           type: response.type,
-          timestamp,
-        })),
+          timestamp: new Date().toISOString()
+        }))
       ]);
-    } catch (error) {
+    } catch (err) {
+      console.error('Error executing command:', err);
       setTerminalHistory(prev => [...prev, {
-        content: `Error executing command: ${error instanceof Error ? error.message : 'Unknown error'}\nTip: Type 'help' to see available commands.`,
+        content: `Error: ${err instanceof Error ? err.message : 'Unknown error occurred'}`,
         type: 'error',
-        timestamp,
+        timestamp: new Date().toISOString()
       }]);
     } finally {
       setIsProcessing(false);

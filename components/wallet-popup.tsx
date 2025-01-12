@@ -3,6 +3,7 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useEffect, useState } from 'react';
+import { Prompt } from './shared/Prompt';
 
 interface WalletPopupProps {
   isOpen: boolean;
@@ -48,7 +49,7 @@ export default function WalletPopup({ isOpen, onClose }: WalletPopupProps) {
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[#3af23a] text-xl font-mono animate-pulse">
-              > INITIALIZING WALLET CONNECTION
+              <Prompt />INITIALIZING WALLET CONNECTION
             </h2>
             <button 
               onClick={onClose}
@@ -62,7 +63,7 @@ export default function WalletPopup({ isOpen, onClose }: WalletPopupProps) {
           
           <div className="space-y-4 font-mono">
             <p className="text-[#3af23a]/70 text-sm typewriter">
-              > SELECT WALLET PROVIDER TO ESTABLISH SECURE CONNECTION...
+              <Prompt />SELECT WALLET PROVIDER TO ESTABLISH SECURE CONNECTION...
             </p>
             
             <div className="flex justify-center py-4">
@@ -70,9 +71,9 @@ export default function WalletPopup({ isOpen, onClose }: WalletPopupProps) {
             </div>
             
             <div className="text-[#3af23a]/50 text-xs">
-              <p>> STATUS: AWAITING USER AUTHENTICATION</p>
-              <p>> ENCRYPTION: ENABLED</p>
-              <p>> PROTOCOL: WEB3</p>
+              <p><Prompt />STATUS: AWAITING USER AUTHENTICATION</p>
+              <p><Prompt />ENCRYPTION: ENABLED</p>
+              <p><Prompt />PROTOCOL: WEB3</p>
             </div>
           </div>
         </div>

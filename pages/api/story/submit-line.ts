@@ -55,10 +55,12 @@ export default async function handler(
 
 // TODO: Replace these mock functions with actual implementations
 async function checkTokenBalance(publicKey: string): Promise<number> {
+  console.log('Checking token balance for:', publicKey);
   return 150000; // Mock balance
 }
 
 async function getLastContribution(publicKey: string): Promise<number> {
+  console.log('Getting last contribution for:', publicKey);
   return Date.now() - (25 * 60 * 60 * 1000); // Mock timestamp (25 hours ago)
 }
 

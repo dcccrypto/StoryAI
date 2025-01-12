@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PublicKey } from '@solana/web3.js';
+import { NextResponse } from 'next/server';
 import NodeCache from 'node-cache';
 
 // Initialize cache with 5-minute TTL
@@ -11,7 +10,7 @@ interface AuthRequest {
   message: string;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body: AuthRequest = await request.json();
     const { publicKey, signature, message } = body;
@@ -22,6 +21,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Store the message in cache for verification
+    cache.set(`auth_${publicKey}`, message);
 
     // Verify the signature (implement actual verification logic here)
     const isValid = true; // Replace with actual signature verification
